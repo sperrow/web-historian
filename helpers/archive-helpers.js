@@ -1,6 +1,7 @@
 var fs = require('fs');
 var path = require('path');
 var _ = require('underscore');
+var utils = require('../web/http-helpers.js');
 
 /*
  * You will need to reuse the same paths many times over in the course of this sprint.
@@ -25,7 +26,13 @@ exports.initialize = function(pathsObj){
 // The following function names are provided to you to suggest how you might
 // modularize your code. Keep it clean!
 
-exports.readListOfUrls = function(){
+exports.readListOfUrls = function(callback){
+  fs.readFile(exports.paths.list, 'utf-8', function(error, data) {
+    if(error){
+      throw error;
+    }
+    callback(data.split('\n'));
+  });
 };
 
 exports.isUrlInList = function(fileName, callback){
@@ -43,7 +50,7 @@ exports.isUrlInList = function(fileName, callback){
 };
 
 exports.addUrlToList = function(fileName, callback){
-  fs.appendFile(exports.paths.list, fileName, function(error) {
+  fs.appendFile(exports.paths.list, fileName + '\n', function(error) {
     if(error) {
       callback(false);
     }
@@ -57,5 +64,20 @@ exports.isUrlArchived = function(filePath, callback){
   });
 };
 
-exports.downloadUrls = function(){
+exports.downloadUrls = function(urlArray){
+  for( var i = 0; i < urlArray.length; i++ ) {
+    var urlToArchive = urlArray[i];
+    var filePath = path.join(exports.paths.archivedSites, urlToArchive);
+    exports.isUrlArchived(filePath, function(archived) {
+      if( !archived ) {
+        utils.downloadUrl(urlToArchive, function(response) {
+          fs.writeFile(filePath, response, function(error) {
+            if(error) {
+              throw error;
+            }
+          });
+        });
+      }
+    });
+  }
 };

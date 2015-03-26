@@ -3,6 +3,7 @@ var http = require('http');
 var fs = require('fs');
 var archive = require('../helpers/archive-helpers');
 var url = require('url');
+var request = require('request');
 
 exports.headers = headers = {
   "access-control-allow-origin": "*",
@@ -25,16 +26,10 @@ exports.serveAssets = function(res, asset, callback) {
   });
 };
 
-
-exports.router = function(req) {
+exports.processGet = function(req, res) {
   var parsedUrl = url.parse(req.url);
   var pathName = parsedUrl.pathname.slice(1);
-  // var filePath = archive.paths.archivedSites + '/' + pathName;
-  return pathName;
-}
-
-exports.processGet = function(res, pathName) {
-  var filePath = archive.paths.archivedSites + '/' + pathName;
+  var filePath = path.join(archive.paths.archivedSites, pathName);
   if(pathName === ''){
     //serve index
     exports.serveAssets(res, './web/public/index.html', function(content){
@@ -55,74 +50,74 @@ exports.processGet = function(res, pathName) {
   }
 };
 
-exports.processPost = function(res, req, pathName) {
-  var filePath = archive.paths.archivedSites + '/' + pathName;
-  res.statusCode = 201;
-  archive.isUrlArchived(filePath, function(isInArchive){
-    if(isInArchive === true){
-      exports.serveAssets(res, filePath, function(content){
-        res.end(content);
-      })
-    } else {
-      archive.isUrlInList(pathName, function(isInList){
-        if(isInList){
-          exports.serveAssets(res, './web/public/loading.html', function(content) {
-            res.end(content);
-          });
-        } else {
-          //add to list
-          archive.addUrlToList(pathName, function(done) {
-            exports.serveAssets(res, './web/public/loading.html', function(content) {
-              res.statusCode = 302;
-              res.end(content);
-            });
-          });
-        }
-      });
-    }
+var chunker = function(req, callback) {
+  var body = '';
+  req.on('data', function(chunk) {
+    body += chunk;
+  });
+  req.on('end', function() {
+    // body = JSON.parse(body);
+    callback(body);
   });
 };
 
-/*exports.router = function(req, res){
-  var parsedUrl = url.parse(req.url);
-  console.log("parsedURl: ", parsedUrl);
-  var query = parsedUrl.pathname;
-  query = query.slice(1);
-  var pathName = archive.paths.archivedSites + '/' + query;
-  console.log("pathName on creation: ", pathName);
-  //if url /
-  if(req.url === '/'){
-    //serve index
-    exports.serveAssets(res, './web/public/index.html', function(content){
-      res.end(content);
-    });
-  } else {
-    validateUrl(query, function(statusCode) {
-      if(statusCode === '404') {
-        res.statusCode = 404;
-        res.end();
+exports.processPost = function(req, res) {
+  chunker(req, function(body) {
+    console.log('line 66: ', req);
+    console.log('body: ', body);
+    var pathName = body.split('=')[1].replace('http://', '');
+    var filePath = path.join(archive.paths.archivedSites, pathName);
+    res.statusCode = 201;
+
+    archive.isUrlArchived(filePath, function(isInArchive){
+      if(isInArchive === true){
+        res.statusCode = 302;
+        exports.serveAssets(res, filePath, function(content){
+          res.end(content);
+        })
       } else {
-        archive.isUrlArchived(pathName, function(isInArchive){
-          if(isInArchive === true){
-            exports.serveAssets(res, pathName, function(content){
+        archive.isUrlInList(pathName, function(isInList){
+          if(isInList){
+            res.statusCode = 302;
+            exports.serveAssets(res, './web/public/loading.html', function(content) {
               res.end(content);
-            })
+            });
           } else {
-            archive.isUrlInList(query, function(isInList){
-              if(isInList){
-                //send loading page
-              } else {
-                //add to list
-              }
+            //add to list
+            archive.addUrlToList(pathName, function(done) {
+              exports.serveAssets(res, './web/public/loading.html', function(content) {
+                res.end(content);
+              });
             });
           }
         });
       }
     });
+  });
+};
 
-  }
-}
-*/
+exports.downloadUrl = function(urlToDownload, callback) {
+  var parsedUrl = url.parse(urlToDownload);
+
+  var options = {
+    host: parsedUrl.pathname,
+    path: '/',
+    method: 'GET',
+    headers: exports.headers
+  };
+  
+  http.request(options, function(response) {
+    var body = '';
+    response.on('data', function(d) {
+      body += d;
+    });
+    response.on('end', function() {
+      callback(body);
+    });
+  }).on('error', function(e){
+    console.log('error: ', e);
+  }).end();
+};
 
 
 
