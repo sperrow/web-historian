@@ -65,53 +65,26 @@ exports.isUrlArchived = function(filePath, callback){
 };
 
 exports.downloadUrls = function(urlArray){
-  //for( var i = 0; i < urlArray.length; i++ ) {
-    var recurse = function(i){
-      if(i === urlArray.length){
-        return;
-      }
-      var urlToArchive = urlArray[i];
-      var filePath = path.join(exports.paths.archivedSites, urlToArchive);
-      console.log('urlToArchive: ', urlToArchive);
-      exports.isUrlArchived(filePath, function(archived) {
-        if( !archived ) {
-          console.log('line 74 urlToArchive: ', urlToArchive);
-          utils.downloadUrl(urlToArchive, function(response) {
-            console.log('line 74: ', response);
-            fs.writeFile(filePath, response, function(error) {
-              if(error) {
-                console.log('line 76: ', error);
-                //throw error;
-              }
-              recurse(i+1);
-            });
-          });
-        } else {
-          recurse(i+1);
-        }
-      });
+  var recurse = function(i){
+    if(i === urlArray.length){
+      return;
     }
-
-    recurse(0);
-  //}
-
-  // for( var i = 0; i < urlArray.length; i++ ) {
-  //   var urlToArchive = urlArray[i];
-  //   var filePath = path.join(exports.paths.archivedSites, urlToArchive);
-  //   console.log('urlToArchive: ', urlToArchive);
-  //   exports.isUrlArchived(filePath, function(archived) {
-  //     if( !archived ) {
-  //       console.log('line 74 urlToArchive: ', urlToArchive);
-  //       utils.downloadUrl(urlToArchive, function(response) {
-  //         console.log('line 74: ', response);
-  //         fs.writeFile(filePath, response, function(error) {
-  //           if(error) {
-  //             console.log('line 76: ', error);
-  //             throw error;
-  //           }
-  //         });
-  //       });
-  //     }
-  //   });
-  // }
+    var urlToArchive = urlArray[i];
+    var filePath = path.join(exports.paths.archivedSites, urlToArchive);
+    exports.isUrlArchived(filePath, function(archived) {
+      if( !archived ) {
+        utils.downloadUrl(urlToArchive, function(response) {
+          fs.writeFile(filePath, response, function(error) {
+            if(error) {
+              console.log(error);
+            }
+            recurse(i+1);
+          });
+        });
+      } else {
+        recurse(i+1);
+      }
+    });
+  }
+  recurse(0);
 };

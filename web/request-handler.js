@@ -2,8 +2,6 @@ var path = require('path');
 var archive = require('../helpers/archive-helpers');
 var utils = require('./http-helpers.js');
 
-// require more modules/folders here!
-
 var actions = {
   'GET': function(req, res){
     utils.processGet(req, res);
@@ -15,6 +13,4 @@ var actions = {
 
 exports.handleRequest = function (req, res) {
   actions[req.method](req, res);
-
-  //res.end(archive.paths.list);
 };

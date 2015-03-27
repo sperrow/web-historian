@@ -17,37 +17,35 @@ exports.serveAssets = function(res, asset, callback) {
   // Write some code here that helps serve up your static files!
   // (Static files are things like html (yours or archived from others...),
   // css, or anything that doesn't change often.)
-  fs.readFile(asset, function(error, content){
+var encoding = {encoding: 'utf-8'};
+  fs.readFile(archive.paths.siteAssets + asset, encoding, function(error, content){
     if(error){
-      throw (error);
+      fs.readFile(archive.paths.archivedSites + asset, encoding, function(error, data) {
+        if(error) {
+          res.statusCode = 404;
+          res.end('File not found');
+        } else {
+          callback(data);
+        }
+      });
+    } else {
+      callback(content);
     }
-
-    callback(content);
   });
 };
 
 exports.processGet = function(req, res) {
   var parsedUrl = url.parse(req.url);
-  var pathName = parsedUrl.pathname.slice(1);
-  var filePath = path.join(archive.paths.archivedSites, pathName);
-  if(pathName === ''){
-    //serve index
-    exports.serveAssets(res, './web/public/index.html', function(content){
-      res.end(content);
-    });
-  } else {
-    archive.isUrlArchived(filePath, function(isInArchive){
-      if(isInArchive === true){
-        exports.serveAssets(res, filePath, function(content){
-          res.statusCode = 200;
-          res.end(content);
-        });
-      } else {
-        res.statusCode = 404;
-        res.end('File not found');
-      }
-    });
+  var asset = parsedUrl.pathname;
+  if(asset === '/') {
+    asset = '/index.html';
   }
+  var filePath = path.join(archive.paths.archivedSites, asset);
+  
+  exports.serveAssets(res, asset, function(content){
+    res.end(content);
+  });
+
 };
 
 var chunker = function(req, callback) {
@@ -56,36 +54,35 @@ var chunker = function(req, callback) {
     body += chunk;
   });
   req.on('end', function() {
-    // body = JSON.parse(body);
     callback(body);
   });
 };
 
 exports.processPost = function(req, res) {
   chunker(req, function(body) {
-    console.log('line 66: ', req);
-    console.log('body: ', body);
     var pathName = body.split('=')[1].replace('http://', '');
     var filePath = path.join(archive.paths.archivedSites, pathName);
+    var asset = '/' + pathName;
     res.statusCode = 201;
 
     archive.isUrlArchived(filePath, function(isInArchive){
       if(isInArchive === true){
-        res.statusCode = 302;
-        exports.serveAssets(res, filePath, function(content){
+        var statusCode = 302;
+        res.writeHead(statusCode, {Location: asset});
+        exports.serveAssets(res, asset, function(content){
           res.end(content);
         })
       } else {
+        res.writeHead(302, {Location: '/loading.html'});
         archive.isUrlInList(pathName, function(isInList){
           if(isInList){
-            res.statusCode = 302;
-            exports.serveAssets(res, './web/public/loading.html', function(content) {
+            exports.serveAssets(res, '/loading.html', function(content) {
               res.end(content);
             });
           } else {
             //add to list
             archive.addUrlToList(pathName, function(done) {
-              exports.serveAssets(res, './web/public/loading.html', function(content) {
+              exports.serveAssets(res, '/loading.html', function(content) {
                 res.end(content);
               });
             });
