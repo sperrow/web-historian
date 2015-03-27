@@ -98,7 +98,6 @@ exports.processPost = function(req, res) {
 
 exports.downloadUrl = function(urlToDownload, callback) {
   var parsedUrl = url.parse(urlToDownload);
-
   var options = {
     host: parsedUrl.pathname,
     path: '/',
